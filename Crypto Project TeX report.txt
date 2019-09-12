@@ -1,0 +1,191 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{appendix}
+\usepackage{amsmath,amsthm,amssymb}
+\usepackage{mathtools}
+
+\newenvironment{theorem}[2][Theorem]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+\newenvironment{lemma}[2][Lemma]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+\newenvironment{exercise}[2][Exercise]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+\newenvironment{problem}[2][Problem]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+\newenvironment{question}[2][Question]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+\newenvironment{corollary}[2][Corollary]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+\newenvironment{example}[2][Example]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2}]}{\end{trivlist}}
+\newenvironment{definition}[2][Definition]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1.}]}{\end{trivlist}}
+
+\title{Cryptographic System Report}
+\author{By Aaron De\'{a}k, Sean McTiernan, Mario Roani, and Daniel Tartaglione}
+\date{May 2019}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Our message-sending program makes use of the Rivest-Shamir-Adleman (RSA) encryption and decryption algorithms to transmit information safely. This paper is designed to explain these algorithms in detail and to supplement a program that we implemented in order to demonstrate the encryption and decryption techniques. First, we explore the necessary discrete mathematics needed to understand the algorithms in full. Next, we state the mathematics and provide a brief example. Then, we explain parts of the implementation of our program. Finally, we explore the various strengths and weaknesses of the RSA system.
+
+
+\section{Preliminary Mathematics}
+
+In order to understand the validity and usefulness of the encryption and decryption algorithms, it is necessary to understand a number of concepts from modular arithmetic. In this section, we develop this background by defining the appropriate operations and stating and proving required theorems.
+
+First, we define the basic operations under the modulus and provide mechanisms for simplifying these operations.
+\begin{definition}{.} We say that $n \equiv m $ (mod $d$) if and only if $n - m$ is divisible by $d$.
+\end{definition}
+For example, $17 \equiv 2$ (mod 5) because $17 - 2 = 15$, which is divisible by 5. As another example, $17 \equiv 3$ (mod 7) because $17 - 3 = 14$, which is divisible by 7. From these two examples, we can observe that any integer modulo $d$ is equivalent to some integer in the range $[0, p - 1]$. These numbers form equivalence classes modulo $d$. The proof that the modulus is an equivalence relation is in Appendix A.
+
+Intuitively, we can find the modulus of numbers outside the normal interval by repeatedly adding or subtracting $d$ from the integer at hand. For example, to find the standard representation of -13 modulo 6, we can add 6 to 13 three times to produce 5. For larger numbers, we can determine this value by performing long division; the remainder is the integer modulo $p$ in the standard interval. This fact means that computing a number modulo $p$ in a program is incredibly fast even for large numbers because it practically takes the same speed as integer division.
+
+Basic operations using modular arithmetic are straightforward. To add two integers modulo $d$, we simply add the numbers and compute the result modulo $d$. For example, $43 - 17$ (mod 12) $\equiv$ 26 (mod 12) $\equiv$ 2 (mod 12). Another way to complete this operation is to compute each number modulo 12 first and then add the numbers; here, we obtain $7 - 5$, which is 2 modulo 12. These same concepts apply to multiplication modulo $d$. For example, 8(11) (mod 5) $\equiv$ 88 (mod 5) $\equiv$ 3. We can apply the same tactics as before by noticing that 8(11) (mod 5) $\equiv$ 3(1) $\equiv$ 3. A similar use of this tactic is the use of negative numbers. A good demonstration of this is 18(121) (mod 122). Here, 121 (mod 122) $\equiv$ -1 (mod 122), so 18(121) (mod 122) $\equiv$ 18(-1) (mod 122) $\equiv$ -18 (mod 122), which we determine is 104 (mod 122).
+
+In addition to modular arithmetic, it is imperative to have an understanding of prime numbers and relative primality. A factor of an integer is an integer whose product with another integer is equal to the given number. For example, 2 and 3 are factors of 6. A $\textbf{prime number}$ is a positive integer with no positive factors other than itself and 1. For example, 7, 13, and 1601 are prime numbers. There are known to be infinitely many primes (see Appendix B). Two natural numbers are relatively prime if and only if they share no factors other than 1. For example, 15 and 4 are relatively prime because the factors of 15 are 3 and 5, and the factors of 4 are 2 and 2, none of which match.
+
+The ancient mathematician Euclid provides a fast, concrete algorithm by which we can determine if two numbers are relatively prime, called the Euclidean algorithm.
+
+\begin{theorem}{(Euclidean Algorithm)}
+Take two positive integers $a_{1}$ and $a_{2}$ such that $a_{1} > a_{2}$. Compute $a_{3} \equiv a_{1}$ (mod $a_{2}$). Then, compute $a_{4} \equiv a_{2}$ (mod $a_{3}$). Continue this process until we obtain some $a_{n} \equiv 0$ (mod $a_{n - 1}$). Then, $a_{n - 1}$ is the greatest common factor (often called the greatest common denominator, or $\textbf{GCD}$) between $a_{1}$ and $a_{2}$.
+\end{theorem}
+
+\begin{proof}
+Let the GCD of $a_{1}$ and $a_{2}$ be $d$. Then, using the definition of the modulus, $d = a_{n - 1} = a_{n - 3} - k_{m}(a_{n - 2})$, $a_{n - 2} = a_{n - 4} - k_{m - 1}(a_{n - 3})$, ..., and $a_{3} = a_{1} - k_{1}(a_{2})$. Thus, $a_{1} = k_{1}(a_{2}) + a_{3}$, ..., and $a_{n - 2} = k_{m}(a_{n - 1}) + a_{n} = k_{m}d$. Thus, $a_{n - 3} = k_{m - 1}a_{n - 2} + a_{n - 1} = k_{m - 1}k_{m}d + d$, and, because $a_{n} = 0$, $a_{n - 1} = d$, $a_{n - 2}$, and $a_{n - 3}$ are all divisible by $d$, so will each increasing term by the recursive formula $a_{i} = k \cdot a_{i - 1} + a_{i - 2}$ for some $k$. Therefore, $d$ must divide $a_{1}$ and $a_{2}$, and all $a_{x < n - 1}$ do not have this property, so $d$ is the GCD of $a_{1}$ and $a_{2}$. As a corollary, there exists a linear combination of $a_{1}$ and $a_{2}$ that sums to $d$.
+\end{proof}
+
+As an example, consider 32 and 12. Then, 32 (mod 12) $\equiv$ 8, 12 (mod 8) $\equiv$ 4, and 8 (mod 4) $\equiv$ 0. Thus, 4 is the GCD of 32 and 12, so they are not relatively prime. This process is very easy in computing, so it is generally easy to determine if two numbers are relatively prime. However, given only one large number, there is no easy algorithm to determine its factors. Although these observations seem small, they are critical in the security of many common cryptographic algorithms.
+
+We will now take for granted that we can determine if two positive integers are relatively prime, which means that their GCD is 1. In order to establish the foundation needed to understand the mathematics of the RSA algorithm, we need to know how to find an inverse of an integer modulo $p$ and an important theorem known as Euler's Generalization, which will also require one more definition. First, we discuss exponents and the inverse of a number modulo $p$. Exponents follow from multiplication as expected. For example, $3^{4}$ (mod 15) $\equiv$ 81 (mod 15) $\equiv$ 6 (mod 15). However, RSA and other cryptographic systems require the use of large exponents, so it is not always feasible to compute exponents as such. Before we handle this issue, however, we determine what is meant by a negative exponent. We define it as follows.
+
+\begin{definition}{}
+The \textbf{inverse} of $a$ (mod $p$) for a prime number $p$ is the integer $b$ modulo $p$ such that $ba \equiv 1$ (mod $p$). It is denoted by $a^{-1}$ and inherits the normal rules of integer exponents over the reals. For example, $(a^{-1})^{2} \equiv a^{-2}$ (mod $p$).
+\end{definition}
+
+We must now set out to prove that the inverse does indeed exist for every nonzero $a$ modulo a prime number. A small fact will enable us to prove this easily.
+
+\begin{lemma}{A}
+Consider $x$, $y$, a prime number $p$, and some $a$, and suppose that $x$ and $y$ are not equivalent modulo $p$. Then, $ax \equiv ay$ (mod $p$) if an only if $a \equiv 0$ (mod $p$).
+\end{lemma}
+\begin{proof}{}
+Because $ax \equiv ay$ (mod $p$), $ax - ay \equiv 0$ (mod $p$), so $a(x - y) \equiv 0$ (mod $p$). Because $x$ and $y$ are not equivalent modulo $p$, $x - y$ is nonzero modulo $p$. Therefore, $x - y$ is not a multiple of $p$. This means that, because $p$ is prime, $a(x - y) \equiv 0$ (mod $p$) if and only if $a \equiv 0$ (mod $p$) because otherwise, both factors are either 1 or relatively prime to the prime number $p$, meaning that their product must be nonzero modulo $p$.
+\end{proof}
+
+This ominous lemma leads us to two important discoveries. We now know that, for nonequivalent $x$ and $y$, if we choose some nonzero $a$, $ax$ and $ay$ will not be equivalent modulo a prime number. Thus, we can say that every $ax$ modulo a prime number $p$ with a nonzero $a$ is distinct for each $0 < x < p$. From this, we can obtain two facts. The first is that every nonzero number modulo $p$ has an inverse. This is true simply because exactly one instance of $ax$ in the set we defined in the proof must be 1. We are also led to a very important and famous result from Fermat that gives us a great insight into how exponents behave in modular arithmetic.
+
+\begin{theorem}{(Fermat's Little Theorem)}
+Consider a prime $p$ and a nonzero $a$ modulo $p$. Then, $a^{p - 1} \equiv 1$ (mod $p$).
+\end{theorem}
+\begin{proof}{}
+Consider a prime $p$ and a set $P = \{1, 2, ..., p - 1 \}$. Then, consider a nonzero $a$ and the set $A = \{a, 2a, ..., a(p - 1) \}$. Here, $P$ and $A$ are isomorphic because all the elements in $A$ are not equivalent by Lemma A, and none of them can be 0 because $a$ and each element of $P$ is 1 or relatively prime to $p$. Thus, because the sets contain the same elements, the products of each element in the respective set must be the same. Therefore, $(p - 1)! \equiv a^{p - 1}(p - 1)!$ (mod $p$). The quantity $(p - 1)!$ is relatively prime to $p$, so it has an inverse. Thus, multiplying each side by this inverse gives that $1 \equiv a^{p - 1}$ (mod $p$).
+\end{proof}
+
+The result that we have just proven is enormous for simplifying modular expressions involving exponents. For example, $4^{10002}$ (mod 11) $\equiv$ $4^{1000}4^{2}$ $\equiv$ $(4^{10})^{100}4^{2}$ $\equiv$ $1^{100}4^{2}$ $\equiv$ $4^{2}$ $\equiv$ 5. However, these results naturally lead to questions about the results that occur if the modulus is not a prime number. In fact, we must deal with this case in the RSA algorithms, so it is imperative that we cover these cases. Before doing so, note that, in some cases, we dropped the notation (mod $p$). It is more efficient to do this if the modulus can be understood throughout the computation at hand.
+
+The inverse of a number $a$ modulo $p$ is only defined if $p$ is prime and if $a$ is not 0 modulo $p$. However, we can still solve $ba \equiv 1$ (mod $n$) for $b$ as long as $a$ is relatively prime to $n$. Specifically, we obtain the equation $ba = 1 + kn$ for some $k$. Thus, $ba - kn = 1$, and we can employ the Euclidean algorithm and reverse it to find the solution for $b$ as in the proof of the Euclidean algorithm. In other words, by the Euclidean algorithm, there exists a linear combination of $b$ and $n$ that sums to 1. If $a$ and $n$ were not relatively prime, then there would be no solution because we would be able to factor a positive integer greater than 1 out of the left-hand side, making it impossible to obtain 1. Importantly, $b$ will also be relatively prime to $n$ for the same reason. The fact that a solution exists for such modular equations is vital to the proof of Euler's Generalization of Fermat's Little Theorem.
+
+In order to prove the final result that we need to understand the RSA algorithms in full, we must first define the Euler totient function.
+
+\begin{definition}{}
+The $\textbf{Euler totient function}$ of a positive integer $n$, $\phi (n)$, is the number of integers less than $n$ that are 1 or relatively prime to $n$.
+\end{definition}
+
+For example, $\phi (10) = 4$ because only 1, 3, 7, and 9 satisfy the conditions above for $n = 10$. For a prime $p$, $\phi (p) = p - 1$ because every integer between 1 and $p - 1$ has a GCD of 1 with $p$. There is a similar result that we need to prove that RSA message-passing works correctly.
+
+\begin{lemma}{B}
+For two distinct primes $p$ and $q$, $\phi (pq) = (p - 1)(q - 1)$.
+\end{lemma}
+\begin{proof}
+Consider the inclusive integer intervals $[1, p - 1], [p + 1, 2p - 1], [2p + 1, 3p - 1], ... [p(q - 1) + 1, pq - 1]$. In each interval, there are $p - 1$ integers that are 1 or relatively prime to $p$, making $(p - 1)q$ integers. However, we must exclude all the integers relatively prime to $q$. The only integers that were excluded so far were multiples of $p$, meaning that no multiples of $q$ were excluded yet because $p$ and $q$ are prime and are thus relatively prime. Thus, we are left with $(p - 1)q - (p - 1) = (p - 1)(q - 1)$ integers.
+\end{proof}
+There are stronger results about $\phi (n)$, but we do not need them for our purposes. We will use this result in the RSA encryption algorithm.
+
+The last result that we need for the RSA algorithms is Euler's Generalization, which is a more powerful version of Fermat's Little Theorem discovered by the Swiss mathematical giant Leonhard Euler. The proof provided is very similar to that for Fermat's Little Theorem.
+
+\begin{theorem}{(Euler's Generalization)}
+Let $a$ be nonzero modulo $n$ and relatively prime to $n$. Then, $a^{\phi (n)} \equiv 1$ (mod $n$).
+\end{theorem}
+\begin{proof}
+For any positive integer $n$, consider the set of all numbers relatively prime to $n$, $P = \{a_{1}, a_{2}, ... a_{n} \}$. Let $b$ be relatively prime to $n$, and let $A = \{ba_{1}, ba_{2}, ... ba_{n} \}$. All $ba_{i}$ will be relatively prime to $n$, so $A = P$. Thus, equating the products modulo $n$ gives that $a^{\phi (n)}(a_{1}a_{2}...a_{n}) \equiv a_{1}a_{2}...a_{n}$ (mod $n$), and the right-hand side must have a $c$ such that $ca_{1}a_{2}...a_{n} \equiv 1$ because it is relatively prime to $n$, so we multiply both sides by $c$ to obtain that $a^{\phi (n)} \equiv 1$ (mod $n$).
+\end{proof}
+We are now ready to give the RSA encryption and decryption algorithms.
+
+
+\section{Mathematical Foundation of the Encryption}
+
+The algorithms employed utilize standard, non-accelerated RSA encryption with large primes to form the private key. We describe the theoretical underpinnings of RSA here before discussing our implementations.
+
+Suppose that Bob is trying to allow Alice to send him a message secretly, and suppose that Eve is a potential attacker. Let $p$ and $q$ be large primes, and let $n = pq$. Using $\phi (n)$ as the Euler totient function on $n$, we can observe that $\phi (n) = (p - 1)(q - 1)$ by Lemma B. Bob chooses an $e$ relatively prime to $\phi (n)$. He then computes $d \equiv e^{-1}$ (mod $\phi (n))$. He makes $n$ and $e$ public but keeps $p$, $q$, and $d$ secret. Now, suppose that Alice wants to send a message $M$ to Bob, where $M$ is quantifiable modulo $n$. She sends Bob $M^{e}$. To decode the message, Bob computes $(M^{e})^{d}$. This produces $M$ by the following computation modulo $n$, noting that $ed \equiv 1$ (mod $\phi (n)$) $\Rightarrow$ $ed = k \phi (n) + 1$ for some $k$:
+
+$$(M^{e})^{d} \equiv M^{ed} \equiv M^{k \phi (n) +1} \equiv M^{k \phi (n)}M \equiv M$$
+by Euler's Generalization. Thus, Bob has decrypted the sent message. The message that Alice sent was safe because, in order to find $M$ from $M^{e}$, Eve would have to find $d$, which she can only find reliably if she knows $\phi (n)$. However $d$ and $\phi (n)$ are secret, and she cannot readily determine $\phi (n) = (p - 1)(q - 1)$ because, for sufficiently large $p$ and $q$, the task of finding the two prime factors of $n$ is incredibly difficult.
+
+As an example of this algorithm, suppose we have $p = 13$, $q = 7$, and a message whose code is mapped to $M = 5$. Then, $n = 91$, and $\phi (n) = 72$. Let $e = 23$, which is relatively prime to 72. Then, $e$ and $n$ are made public, and the sender sends $5^{23} \equiv 73$ (mod 91). The receiver computes the multiplicative inverse of 23 modulo 72, which is $47 = d$. Then, the receiver computes $73^{47}$ (mod $91$) $\equiv 5$, so the message has been decrypted successfully using the private key. These computations were checked with Python scripts.
+
+More robust examples can be created in the program.
+
+
+\section{Encryption and Decryption Implementations}
+
+To implement this cryptographic system, we made use of the ASCII table to allow for mathematical operations to be carried out on non-numeric characters (or rather, the number corresponding to each of those characters provided by the ASCII table). There are some mappings in the table which, for our purposes, are useless. In order to prevent these mappings from being used, we simply subtract $31$ from each encoding in order to obtain a working set of ASCII values from 0 to 96, and we hard-code a few additional mappings. If a character's value was less than $10$, this could cause problems in certain cases. This is because we take the integers in pairs (whether they be of the form $24$ or $03$), and use these pairs in order to properly decrypt back to the correct message. In order to remedy this, we simply prepend a $0$ to the front of a number if it is less than $10$.
+
+One problem encountered in implementing this system was finding a way to store large numbers, which play a critical role in the effectiveness of this system. Java has two intrinsic data types which were of initial interest, $int$ and $long$. A value of type int, the 32-bit signed integer type, can hold values ranging from $-2,147,483,648$ to $2,147,483,647$. A value of type long, the 64-bit bit signed integer type, can hold values ranging from $-9,223,372,036,854,775,808$ to $9,223,372,036,854,775,807$. Both of these proved insufficient in developing a realistic implementation of the system. However, Java also has a class called BigInteger, which allows one to represent numbers of indefinite lengths as strings while still supporting mathematical operations. This was sufficient for the implementation.
+
+Another issue faced was that, if a message's length became too large, it would cause both the encryption and decryption algorithms to produce incorrect outputs. The solution to this issue was to break a message apart into blocks and encrypt the message block by block. In order to accomplish this, we append each of the converted ASCII character mappings to a string that is interpreted as the message code, or $M$. This message code is forced to have a uniform length by having 0's prepended to it if the number of digits in the code is less than 399. Our program has $p$ and $q$ of 200-digit lengths, and their product $n$ is 399 digits, so we cannot allow our message blocks to be converted into integers greater than $n$. In order to satisfy this requirement, we append the two-digit ASCII codes for 199 characters, making an integer of 398 digits, which is invariably less than $n$. Thus, for each block, there are more than $96^{398}$ possibilities for a message, so we have block sizes of more than enough characters for secure encryption. Then, we encrypt each block and force each integer code to have a string length of 399 by prepending 0's. Next, we append each of these 399-digit strings to form the encrypted String. Finally, to decrypt the string, we take every block of 399 characters (remember that there may be 0's prepended) and run the decryption algorithm on each number, and we append the decrypted strings to form the original input string.
+
+
+\section{Usability and Safety}
+
+We specified some of the safety of the RSA encryption and decryption processes in the description of the algorithms. The most critical safety of RSA is that, for a product of large primes $n$, there is no easy way to determine $\phi (n)$ or the factors of $n$. In addition, because $\phi (n)$ is not easy to find, it is difficult to find the number $d$ such that $M^{ed} \equiv$ 1 (mod $n$) because the exponents work modulo $\phi (n)$ and not modulo $n$ by Euler's Generalization. Thus, we can make $n$ and $e$ public and still be sure that our system is secure.
+
+In general, RSA is a powerful system that is widely used all over the computing world. RSA is one of the central algorithms for what is known as $\textbf{public key cryptography}$ or $\textbf{asymmetric encryption}$. In regard to Section 3, the public key is $(n, e)$, and the private key is $(p, q)$, from which we can easily determine $\phi (n)$ and $d$; that, or the private key may consist of equivalent information. RSA dominates computing because, after an initial public key exchange, messages can safely be sent in one direction without any backwards handshaking. We can believe this security because, while any sender can encrypt a message using the receiver's public key, only the correct receiver can decrypt the sent messages using the private key, so the system works by allowing only the correct devices to decrypt messages. Other systems may require the message to be sent back and forth multiple times to lock and unlock it, which multiplies the time it takes to send a message safely. The time that RSA saves from these handshakes is critical in computing environments.
+
+Some small flaws persist in the RSA algorithms, but their resolutions usually come with making the primes used to produce $n$ very large, around 100 to 200 digits each. The general reason for this is discussed in Appendix B. However, there are two possible issues regarding the correctness of the system. The first is that, in order for Euler's Generalization to apply to $M^{ed}$, the encoded message $M$ must be relatively prime to $p$ and $q$. For $n = pq$ for primes $p$ and $q$, the probability of randomly choosing an $M$ such that $M$ is not relatively prime to $n$ is given by $P = \frac{n - \phi (n))}{n} = \frac{n - (p - 1)(q - 1)}{n}$. For 100-digit primes $p$ and $q$, this probability resolves to some small multiple of $P = \frac{1}{10^{199}}$, which means that $P$ is essentially 0. The other possible issue with RSA arises due to methods that we have not discussed. Extremely large numbers are usually deemed primes by tests known as $\textbf{primality tests}$, which simply determine if a given positive integer is prime. However, primality tests usually only determine if such an integer is $\textit{probably prime}$. Despite this, the probability of this becoming an issue generally proves meaningless. For example, here is a relatively simple primality test.
+
+\begin{definition}{}
+The \textbf{Fermat Primality Test} uses Fermat's Little Theorem to indicate whether a given number is a prime. Consider a number $n$ that may or may not be prime. Choose any $a$ such that $1 < a < n$ (preferably less than $n - 1$). If $a^{n - 1}$ (mod $n$) is not equivalent to 1, then $n$ is not prime because that would contradict Fermat's Little Theorem. If it is equivalent to 1, then $n$ is probably, but not certainly, prime. For each $1 < a < n$ for which we obtain equivalence to 1, this probability increases.
+\end{definition}
+
+There are integers called pseudo-primes for which every such $a$ satisfies the above where $n$ is not prime, but such $n$ are incredibly rare. Of course, if it is the case that $n$ is not prime, then we are slightly more likely to encounter issues with $M$ not being relatively prime to $n$, but the bigger issue is that $\phi (n)$ is not computed correctly if this is the case, which poses immediate problems for both algorithms. However, stronger primality tests are very reliable and rarely present this issue.
+
+Surely, if there was a working attack on RSA that could be used by normal computer users, it would not be spearheading information passing over the Internet! Guessing the private key is essentially impossible; see Appendix B. Most factoring algorithms will most likely require too much time to complete the task of factoring $n$ practically for $n$ of a few hundred digits. Another possible attack is to form a dictionary-like attack. Let $c \equiv M^{e}$ (mod $n$) for $n$ around $10^{17}$, and create a list of $cx^{-e}$ for $1 \leq x \leq 10^{9}$ and another of $y^{e}$ for $1 \leq y \leq 10^{9}$. If we find a pair such that $cx^{-e} \equiv y^{e}$, then $c \equiv (xy)^{e}$, so $M \equiv xy$. However, this is much more difficult if the length of $n$ is not known and becomes impractical for large $n$. A more computational approach to determining the key is to measure the amount of time it takes for a machine to decrypt an encrypted message. Nonetheless, even if this can determine the number of digits in $n$, there are still far too many primes for guessing to be reasonable once $n$ reaches hundreds of digits. Quantum computing can most likely defeat a number of commonly implemented cryptographic schema, but these have not been created reliably yet and may take many more years to produce.
+
+
+\appendix
+\section{Proof of Equivalence Modulo p}
+
+We take for granted that the reader reading this section knows that an equivalence relation is one that is reflexive, symmetric, and transitive.
+\begin{proof}
+We always have that $a \equiv a$ (mod $n$) because any $n > 0$ divides $a - a = 0$, so the relation is reflexive. If $n$ divides $a - b$, then it also divides $b - a = -(a - b)$, meaning that $a \equiv b$ (mod $n$) and $b \equiv a$ (mod $n$) are equivalent, so the relation is symmetric. Finally, if $a \equiv b$ (mod $n$), and $b \equiv c$ (mod $n$), then $n$ divides both $a - b$ and $b - c$, meaning that $n$ divides the sum $(a - b) + (b - c) = a - c$, so $a \equiv c$ (mod $n$), proving that the relation is transitive. Thus, the relation is an equivalence relation.
+\end{proof}
+
+\section{Proof of Infinitude of Primes and Brief Probability Analysis}
+
+\begin{proof}
+Suppose that there is a finite number or primes $P_{1}$, $P_{2}$, ..., $P_{n}$. Let $A = P_{1}P_{2}...P_{n} + 1$. $A$ is prime because none of the primes divided the sum, for the first prime is $2 > 1$. Therefore, we have contradicted the assumption that there is a finite number of primes, so there must be an infinite number of primes.
+\end{proof}
+
+The proof of the existence of infinitely many primes provides us the security that there are primes of indefinite length if we need them in order to enhance the security of a cryptographic application, but this is not the only significant matter at hand. For example, there are prime numbers containing billions of digits that have been found, but these would obviously not be practical to use in an everyday application because computations surrounding these numbers would take too much time. On the other hand, we cannot choose small primes for cryptographic applications because they can be easily guessed. For these reasons, primes containing around 100 digits are typically used for RSA implementations. However, we have to be sure that there are sufficiently many primes in existence to ensure that they cannot be guessed. This brings up questions about the distribution of primes that may be hard to answer without complex (pun intended) mathematics, but we can gain some insight from well known facts. A quick Wikipedia search on well-known mathematics provides some insight. We start with a definition.
+
+\begin{definition}{}
+The \textbf{prime-counting function} of $x$, $\pi (x)$, gives the number of primes less than or equal to $x$, where $x$ is a real number.
+\end{definition}
+Next, we state an important theorem.
+
+\begin{theorem}{(Prime Number Theorem)}
+For the prime-counting function $\pi (x)$ over the real numbers,
+$$\lim_{x \rightarrow \infty}{\pi (x)} = \frac{x}{\textnormal{ln}(x)}.$$
+\end{theorem}
+This gives us a means of approximating the number of primes in a given large interval. For example, consider all positive integers less than or equal to $10^{101}$, those containing 100 or less digits (with one more integer, $10^{101}$ itself). We can approximate $\pi (10^{101})$ as $\frac{10^{101}}{101 \textnormal{ln}(10)}$. The denominator is approximately equal to 232.56; let us over-approximate this to 250. Using 250 as the denominator gives approximately $4 \cdot 10^{98}$ prime numbers. Thus, even if all the prime numbers are known in this interval, randomly guessing a prime number of this order is essentially impossible, even for a supercomputer. This gives us a feeling of safety because, due to these circumstances, there are similar probability implications when attempting to factor a product of two large primes, which is the basis of RSA.
+
+\begin{thebibliography}{}
+\bibitem{}All information here was given or proven by the authors, in Dr. Steven Dougherty's MATH 368 class notes, or in the public domain.
+
+\end{thebibliography}
+
+\end{document}

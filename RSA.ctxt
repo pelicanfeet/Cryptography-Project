@@ -1,0 +1,15 @@
+#BlueJ class context
+comment0.target=RSA
+comment1.params=args
+comment1.target=void\ main(java.lang.String[])
+comment2.params=num\ mod
+comment2.target=int\ findMultiplicativeInverse(int,\ int)
+comment3.params=x
+comment3.target=boolean\ isProbablyPrime(int)
+comment4.params=M\ E\ N
+comment4.target=java.lang.String\ encrypt(java.lang.String,\ int,\ int)
+comment5.params=s\ k\ mod
+comment5.target=java.lang.String\ raiseToPower(java.lang.String,\ int,\ int)
+comment6.params=s\ D\ phi
+comment6.target=java.lang.String\ decrypt(java.lang.String,\ int,\ int)
+numComments=7
